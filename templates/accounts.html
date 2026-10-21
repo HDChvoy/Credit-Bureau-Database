@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Accounts &mdash; Experian Credit Database{% endblock %}
+
+{% block content %}
+
+<div class="row-between">
+  <div>
+    <h1>Tradelines</h1>
+    <p class="sub" style="margin:0">
+      {{ accounts|length }} account{{ '' if accounts|length == 1 else 's' }}
+      {% if status_filter %}with status {{ status_filter }}{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    <form class="searchbar" method="get" action="{{ url_for('account_list') }}">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All statuses</option>
+        {% for s in statuses %}
+          <option value="{{ s }}" {% if s == status_filter %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn btn-secondary" type="submit">Filter</button></noscript>
+    </form>
+    <a class="btn" href="{{ url_for('account_new') }}">{{ icon("plus") }} Open tradeline</a>
+  </div>
+</div>
+
+{% if accounts %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>Creditor</th><th>Type</th><th>Holders</th>
+      <th class="num">Balance</th><th class="num">Limit / Loan</th>
+      <th>Status</th><th>Opened</th><th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for a in accounts %}
+    <tr>
+      <td>
+        <a href="{{ url_for('account_detail', account_id=a.accountid) }}">
+          {{ a.creditorname }}
+        </a>
+        <div class="muted" style="font-size:12.5px">{{ a.accountnumbermasked }}</div>
+      </td>
+      <td>
+        {{ a.accounttype }}
+        <div class="muted" style="font-size:12.5px">{{ a.accountcategory }}</div>
+      </td>
+      <td class="muted" style="font-size:13px">
+        {{ a.holders or '—' }}
+        {% if a.holder_count > 1 %}
+          <span class="tag">{{ a.holder_count }} holders</span>
+        {% endif %}
+      </td>
+      <td class="num">${{ '{:,.2f}'.format(a.currentbalance) }}</td>
+      <td class="num">
+        {% if a.creditlimit is not none %}${{ '{:,.2f}'.format(a.creditlimit) }}
+        {% elif a.originalloanamount is not none %}${{ '{:,.2f}'.format(a.originalloanamount) }}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>
+        <span class="tag {% if a.paymentstatus == 'Current' %}tag-good{% else %}tag-bad{% endif %}">
+          {{ a.paymentstatus }}
+        </span>
+        {% if a.accountstatus != 'Open' %}
+          <div class="muted" style="font-size:12.5px">{{ a.accountstatus }}</div>
+        {% endif %}
+      </td>
+      <td class="muted">{{ a.dateopened }}</td>
+      <td>
+        <div class="actions">
+          <a class="btn btn-secondary btn-sm"
+             href="{{ url_for('account_edit', account_id=a.accountid) }}">{{ icon("edit") }} Edit</a>
+          <a class="btn btn-danger btn-sm"
+             href="{{ url_for('account_delete', account_id=a.accountid) }}">{{ icon("trash") }} Delete</a>
+        </div>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">No tradelines match.</div>
+{% endif %}
+
+{% endblock %}

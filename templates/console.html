@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SQL console &mdash; Experian Credit Database{% endblock %}
+
+{% block content %}
+
+<div class="row-between">
+  <div>
+    <h1>SQL console</h1>
+    <p class="sub" style="margin:0">
+      Run your own query against the database. Every statement runs in a
+      <strong>read-only transaction</strong> with a 5-second time limit,
+      and at most {{ max_rows }} rows are returned.
+    </p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('analytics_home') }}">
+      {{ icon("chart") }} Back to reports</a>
+  </div>
+</div>
+
+{% if errors %}
+  <ul class="errors" role="alert">
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+{% endif %}
+
+<form method="post" action="{{ url_for('sql_console') }}" class="console-form">
+  {# Starter templates. Each button carries its SQL in a data attribute
+     (HTML-escaped by Jinja); clicking replaces the editor contents. #}
+  <div class="templates" role="group" aria-label="Insert a query template">
+    <span class="muted small">Start from:</span>
+    {% for t in templates %}
+      <button type="button" class="tpl" data-sql="{{ t.sql }}">{{ t.label }}</button>
+    {% endfor %}
+  </div>
+  <label for="sql" class="sr-only">SQL query</label>
+  <textarea id="sql" name="sql" rows="14" spellcheck="false"
+            autocapitalize="off" autocomplete="off">{{ sql_text }}</textarea>
+  <div class="tool-buttons">
+    <button class="btn" type="submit">{{ icon("play") }} Run
+      <kbd>Ctrl</kbd>+<kbd>Enter</kbd></button>
+    <label class="load-example">
+      <span class="muted small">Load a report:</span>
+      <select id="example" aria-label="Load a report's SQL">
+        <option value="">Choose&hellip;</option>
+        {% for q in examples %}
+          <option value="{{ url_for('sql_console', **{'from': q.id}) }}">{{ q.title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+</form>
+
+{% include "_results.html" %}
+
+<div class="note">
+  {{ icon("lock", 14) }}
+  Safety is enforced by PostgreSQL, not by checking the text: the
+  connection is opened <code>READ ONLY</code>, so an <code>UPDATE</code>,
+  <code>DELETE</code> or a data-modifying <code>WITH</code> is refused by
+  the server itself, and <code>statement_timeout</code> cancels anything
+  that runs too long.
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var ta = document.getElementById("sql");
+    // Ctrl/Cmd+Enter submits. Tab is left alone so keyboard users can
+    // still move focus out of the editor.
+    ta.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault(); ta.form.submit();
+      }
+    });
+    // Template buttons: put the starter query in the editor, ready to edit.
+    document.querySelectorAll(".tpl").forEach(function (b) {
+      b.addEventListener("click", function () {
+        ta.value = b.dataset.sql;
+        ta.focus();
+        ta.setSelectionRange(0, 0);
+        ta.scrollTop = 0;
+      });
+    });
+    document.getElementById("example").addEventListener("change", function () {
+      if (this.value) window.location = this.value;
+    });
+  })();
+</script>
+{% endblock %}

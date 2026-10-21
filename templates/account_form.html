@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}
+  {{ 'Open tradeline' if mode == 'new' else 'Edit tradeline' }}
+{% endblock %}
+
+{% block content %}
+
+<h1>{{ 'Open a tradeline' if mode == 'new' else 'Edit tradeline' }}</h1>
+<p class="sub">
+  {% if mode == 'new' %}
+    Calls the <code>sp_open_account</code> stored procedure, which writes the
+    <code>Account</code> row and its <code>ConsumerAccount</code> link in one
+    transaction.
+  {% else %}
+    Updating account #{{ account.accountid }}. Every change here is recorded by
+    the <code>trg_account_audit</code> trigger.
+  {% endif %}
+</p>
+
+{% if errors %}
+<ul class="errors">
+  {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" class="panel" novalidate>
+
+{% if mode == 'new' %}
+
+  <div class="grid2">
+    <div class="field">
+      <label for="consumer_id">Consumer</label>
+      <select id="consumer_id" name="consumer_id">
+        <option value="">Select a consumer…</option>
+        {% for c in consumers %}
+          <option value="{{ c.consumerid }}"
+            {% if account.consumer_id and account.consumer_id|string == c.consumerid|string %}selected{% endif %}>
+            {{ c.lastname }}, {{ c.firstname }}
+            {%- if c.securityfreezeflag %} (security freeze){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="creditor_id">Creditor</label>
+      <select id="creditor_id" name="creditor_id">
+        <option value="">Select a creditor…</option>
+        {% for cr in creditors %}
+          <option value="{{ cr.creditorid }}"
+            {% if account.creditor_id and account.creditor_id|string == cr.creditorid|string %}selected{% endif %}>
+            {{ cr.creditorname }} &mdash; {{ cr.businesstype }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="field">
+      <label for="account_number_masked">Account number <span class="hint">masked</span></label>
+      <input type="text" id="account_number_masked" name="account_number_masked"
+             maxlength="20" placeholder="****1234"
+             value="{{ account.account_number_masked or '' }}">
+    </div>
+    <div class="field">
+      <label for="account_category">Category</label>
+      <select id="account_category" name="account_category">
+        {% for cat in categories %}
+          <option value="{{ cat }}"
+            {% if account.account_category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="account_type">Type <span class="hint">e.g. Credit Card</span></label>
+      <input type="text" id="account_type" name="account_type" maxlength="30"
+             value="{{ account.account_type or '' }}">
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="field">
+      <label for="date_opened">Date opened</label>
+      <input type="date" id="date_opened" name="date_opened"
+             value="{{ account.date_opened or '' }}">
+    </div>
+    <div class="field">
+      <label for="limit_or_amount">Credit limit / loan amount</label>
+      <input type="text" id="limit_or_amount" name="limit_or_amount"
+             placeholder="5000.00"
+             value="{{ account.limit_or_amount or '' }}">
+    </div>
+    <div class="field">
+      <label for="monthly_payment">Monthly payment <span class="hint">optional</span></label>
+      <input type="text" id="monthly_payment" name="monthly_payment"
+             placeholder="150.00"
+             value="{{ account.monthly_payment or '' }}">
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label for="responsibility_type">Responsibility</label>
+      <select id="responsibility_type" name="responsibility_type">
+        {% for r in responsibilities %}
+          <option value="{{ r }}"
+            {% if account.responsibility_type == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="terms_months">Term in months <span class="hint">installment only</span></label>
+      <input type="number" id="terms_months" name="terms_months" min="1" max="600"
+             value="{{ account.terms_months or '' }}">
+    </div>
+  </div>
+
+  <div class="note">
+    One amount field, not two. <code>sp_open_account</code> decides from the
+    category whether it becomes <code>CreditLimit</code> or
+    <code>OriginalLoanAmount</code>, which is what keeps
+    <code>chk_account_amount_disjoint</code> satisfied &mdash; an account
+    cannot have both.
+  </div>
+
+{% else %}
+
+  <div class="panel" style="background:#f6f7f9;margin-bottom:20px">
+    <dl class="kv">
+      <dt>Account</dt>
+      <dd><strong>{{ account.accountnumbermasked }}</strong>
+          &middot; {{ account.accounttype }} ({{ account.accountcategory }})</dd>
+      <dt>Opened</dt><dd>{{ account.dateopened }}</dd>
+      <dt>Payment status</dt>
+      <dd>{{ account.paymentstatus }}
+          <span class="muted">&mdash; set by trigger, not editable here</span></dd>
+      <dt>Past due</dt>
+      <dd>${{ '{:,.2f}'.format(account.pastdueamount) }}
+          <span class="muted">&mdash; derived from payment history</span></dd>
+    </dl>
+  </div>
+
+  <div class="grid3">
+    <div class="field">
+      <label for="current_balance">Current balance</label>
+      <input type="text" id="current_balance" name="current_balance"
+             value="{{ account.current_balance if account.current_balance is defined and account.current_balance else account.currentbalance }}">
+    </div>
+
+    {% if account.accountcategory == 'Revolving' %}
+    <div class="field">
+      <label for="credit_limit">Credit limit</label>
+      <input type="text" id="credit_limit" name="credit_limit"
+             value="{{ account.credit_limit if account.credit_limit is defined and account.credit_limit else account.creditlimit }}">
+    </div>
+    {% elif account.accountcategory == 'Installment' %}
+    <div class="field">
+      <label for="original_loan_amount">Original loan amount</label>
+      <input type="text" id="original_loan_amount" name="original_loan_amount"
+             value="{{ account.original_loan_amount if account.original_loan_amount is defined and account.original_loan_amount else account.originalloanamount }}">
+    </div>
+    {% endif %}
+
+    <div class="field">
+      <label for="monthly_payment">Monthly payment</label>
+      <input type="text" id="monthly_payment" name="monthly_payment"
+             value="{{ account.monthly_payment if account.monthly_payment is defined and account.monthly_payment else (account.monthlypayment or '') }}">
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label for="account_status">Account status</label>
+      <select id="account_status" name="account_status">
+        {% for s in statuses %}
+          <option value="{{ s }}"
+            {% if (account.account_status or account.accountstatus) == s %}selected{% endif %}>
+            {{ s }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="date_closed">Date closed <span class="hint">required if Closed</span></label>
+      <input type="date" id="date_closed" name="date_closed"
+             value="{{ account.date_closed if account.date_closed is defined and account.date_closed else (account.dateclosed or '') }}">
+    </div>
+  </div>
+
+  <div class="note">
+    Category cannot be changed after an account is opened: it decides which
+    amount column is legal, and moving a value between
+    <code>CreditLimit</code> and <code>OriginalLoanAmount</code> would violate
+    <code>chk_account_amount_disjoint</code>.
+  </div>
+
+{% endif %}
+
+  <div class="actions" style="margin-top:18px">
+    <button class="btn" type="submit">
+      {{ 'Open tradeline' if mode == 'new' else 'Save changes' }}
+    </button>
+    <a class="btn btn-secondary"
+       href="{% if mode == 'edit' %}{{ url_for('account_detail', account_id=account.accountid) }}{% else %}{{ url_for('account_list') }}{% endif %}">
+      Cancel
+    </a>
+  </div>
+
+</form>
+
+{% endblock %}

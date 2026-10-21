@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Delete tradeline{% endblock %}
+
+{% block content %}
+
+<h1>Delete this tradeline?</h1>
+<p class="sub">This cannot be undone.</p>
+
+<div class="panel">
+  <dl class="kv">
+    <dt>Creditor</dt><dd><strong>{{ account.creditorname }}</strong></dd>
+    <dt>Account</dt>
+    <dd>{{ account.accountnumbermasked }} &middot; {{ account.accounttype }}
+        ({{ account.accountcategory }})</dd>
+    <dt>Balance</dt><dd>${{ '{:,.2f}'.format(account.currentbalance) }}</dd>
+    <dt>Opened</dt><dd>{{ account.dateopened }}</dd>
+  </dl>
+</div>
+
+<h2>What goes with it</h2>
+
+<div class="stats">
+  <div class="stat"><div class="n">{{ cascade.payment_rows }}</div><div class="k">Payment-history rows</div></div>
+  <div class="stat"><div class="n">{{ cascade.holders }}</div><div class="k">Consumer links</div></div>
+  <div class="stat"><div class="n">{{ cascade.audit_rows }}</div><div class="k">Audit rows (kept)</div></div>
+</div>
+
+<div class="note">
+  <code>PaymentHistory</code> is a weak entity: a month means nothing without
+  the account it describes, so it is <code>ON DELETE CASCADE</code> and those
+  {{ cascade.payment_rows }} rows go with the tradeline. The
+  <code>Creditor</code> does not &mdash; that foreign key is
+  <code>ON DELETE RESTRICT</code>, so creditors survive their accounts.
+</div>
+
+{% if cascade.holders > 1 %}
+<div class="flash flash-error">
+  This account appears on {{ cascade.holders }} credit files. Deleting it
+  removes it from all of them.
+</div>
+{% endif %}
+
+<form method="post" style="margin-top:22px">
+  <div class="actions">
+    <button class="btn btn-danger" type="submit">Yes, delete this tradeline</button>
+    <a class="btn btn-secondary"
+       href="{{ url_for('account_detail', account_id=account.accountid) }}">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

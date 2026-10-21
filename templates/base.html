@@ -1,0 +1,80 @@
+{% from "_icons.html" import icon %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Experian Credit Database{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="{{ url_for('index') }}">
+      {{ icon("card", 20) }} Experian Consumer Credit
+    </a>
+    <nav aria-label="Main">
+      {% set ep = request.endpoint or "" %}
+      <a href="{{ url_for('index') }}"
+         class="{{ 'active' if ep == 'index' }}">{{ icon("home") }} Dashboard</a>
+      <a href="{{ url_for('consumer_list') }}"
+         class="{{ 'active' if ep.startswith('consumer') }}">{{ icon("users") }} Consumers</a>
+      <a href="{{ url_for('account_list') }}"
+         class="{{ 'active' if ep.startswith('account') }}">{{ icon("card") }} Accounts</a>
+
+      {# Analytics dropdown. Opens on hover and on keyboard focus
+         (:focus-within), so it works without JavaScript and by Tab key. #}
+      <div class="menu {{ 'active' if ep.startswith('analytics') }}">
+        <a href="{{ url_for('analytics_home') }}" aria-haspopup="true">
+          {{ icon("chart") }} Analytics {{ icon("chevron", 14) }}
+        </a>
+        <div class="menu-panel" role="menu">
+          <a role="menuitem" href="{{ url_for('analytics_home') }}">
+            {{ icon("book") }} <span>All reports<small>Overview of every query</small></span>
+          </a>
+          <hr>
+          {% for c in nav_categories %}
+          <a role="menuitem"
+             href="{{ url_for('analytics_report', query_id=c.first_query) }}">
+            {{ icon(c.icon) }} <span>{{ c.title }}<small>{{ c.count }} report{{ 's' if c.count != 1 }}</small></span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+
+      <a href="{{ url_for('sql_console') }}"
+         class="{{ 'active' if ep == 'sql_console' }}">{{ icon("terminal") }} SQL console</a>
+      <a href="{{ url_for('audit_log') }}"
+         class="{{ 'active' if ep == 'audit_log' }}">{{ icon("history") }} Audit trail</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}" role="status">
+          {{ icon("alert" if category == "error" else "info") }} {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+
+</main>
+
+<footer>
+  <div class="wrap">
+    CS727 Deliverable #5 &mdash; Henry Chvoy &mdash;
+    Python / Flask / PostgreSQL 16
+  </div>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

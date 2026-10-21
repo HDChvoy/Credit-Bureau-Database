@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Analytics &mdash; Experian Credit Database{% endblock %}
+
+{% block content %}
+
+<div class="row-between">
+  <div>
+    <h1>Analytics</h1>
+    <p class="sub" style="margin:0">
+      {{ total }} live reports on the credit database, grouped by SQL technique.
+    </p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('sql_console') }}">
+      {{ icon("terminal") }} Open SQL console
+    </a>
+  </div>
+</div>
+
+<div class="cat-grid">
+{% for s in sections %}
+  <section class="cat-card">
+    <div class="cat-head">
+      <span class="cat-icon">{{ icon(s.category.icon, 22) }}</span>
+      <div>
+        <h2>{{ s.category.title }}</h2>
+        <p class="muted">{{ s.category.blurb }}</p>
+      </div>
+    </div>
+    <ul class="report-list">
+      {% for q in s.reports %}
+      <li>
+        <a href="{{ url_for('analytics_report', query_id=q.id) }}">
+          <strong>{{ q.title }}</strong>
+          {{ icon("arrow-right") }}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endfor %}
+</div>
+
+{% endblock %}

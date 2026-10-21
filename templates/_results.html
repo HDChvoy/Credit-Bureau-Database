@@ -1,0 +1,69 @@
+{#
+  Results table shared by the report pages and the SQL console.
+  Expects `result` = {columns, rows, elapsed_ms} and optionally
+  `sql_error` from db.sql_error_details().
+
+  A column named "_level" is a GROUPING() bitmask from a ROLLUP/CUBE
+  query. It is not displayed; it sets a class on the row so subtotals
+  and the grand total are styled differently from detail rows.
+#}
+{% from "_icons.html" import icon %}
+
+{% if sql_error %}
+<div class="sql-error" role="alert">
+  <div class="sql-error-title">{{ icon("alert", 18) }} {{ sql_error.title }}</div>
+  <div>{{ sql_error.message }}</div>
+  {% if sql_error.line %}
+<pre class="caret">line {{ sql_error.line_no }}: {{ sql_error.line }}
+{{ " " * ("line %d: " % sql_error.line_no)|length }}{{ sql_error.caret }}</pre>
+  {% endif %}
+  {% if sql_error.detail %}<div class="muted">Detail: {{ sql_error.detail }}</div>{% endif %}
+  {% if sql_error.hint %}<div class="hint-line">{{ icon("info", 14) }} {{ sql_error.hint }}</div>{% endif %}
+  {% if sql_error.sqlstate %}<div class="muted small">SQLSTATE {{ sql_error.sqlstate }}</div>{% endif %}
+</div>
+{% endif %}
+
+{% if result %}
+  {% set level_idx = result.columns.index("_level") if "_level" in result.columns else -1 %}
+  <div class="result-meta">
+    <span>{{ icon("rows", 14) }} {{ result.rows|length }} row{{ '' if result.rows|length == 1 else 's' }}</span>
+    <span>{{ icon("clock", 14) }} {{ "%.1f"|format(result.elapsed_ms) }} ms</span>
+    {% if result.truncated %}
+      <span class="tag tag-warn">Showing the first {{ max_rows }} rows</span>
+    {% endif %}
+  </div>
+
+  {% if result.rows %}
+  <div class="table-scroll">
+  <table class="results">
+    <thead>
+      <tr>
+        {% for col in result.columns %}{% if loop.index0 != level_idx %}
+          {% set first = result.rows[0][loop.index0] %}
+          <th class="{{ 'num' if first is numeric }}">{{ col }}</th>
+        {% endif %}{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in result.rows %}
+      {% set lvl = row[level_idx] if level_idx >= 0 else 0 %}
+      <tr class="{{ 'lvl-total' if lvl == 3 else ('lvl-sub' if lvl > 0) }}">
+        {% for value in row %}{% if loop.index0 != level_idx %}
+          {% set col = result.columns[loop.index0] %}
+          {% if col == "Risk tier" %}
+            <td><span class="tag {{ {'High':'tag-bad','Elevated':'tag-warn','Low':'tag-good'}.get(value, '') }}">{{ value }}</span></td>
+          {% elif col == "Change" and value is numeric %}
+            <td class="num {{ 'pos' if value > 0 else ('neg' if value < 0) }}">{{ '+' if value > 0 }}{{ value|cell }}</td>
+          {% else %}
+            <td class="{{ 'num' if value is numeric }}">{{ value|cell }}</td>
+          {% endif %}
+        {% endif %}{% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty">The query ran successfully and returned no rows.</div>
+  {% endif %}
+{% endif %}

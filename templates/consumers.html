@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Consumers &mdash; Experian Credit Database{% endblock %}
+
+{% block content %}
+
+<div class="row-between">
+  <div>
+    <h1>Consumers</h1>
+    <p class="sub" style="margin:0">
+      {{ consumers|length }} credit file{{ '' if consumers|length == 1 else 's' }}
+      {% if search %}matching &ldquo;{{ search }}&rdquo;{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    <form class="searchbar" method="get" action="{{ url_for('consumer_list') }}">
+      <input type="text" name="q" value="{{ search }}" placeholder="Search by name">
+      <button class="btn btn-secondary" type="submit">{{ icon("search") }} Search</button>
+      {% if search %}
+        <a class="btn btn-secondary" href="{{ url_for('consumer_list') }}">Clear</a>
+      {% endif %}
+    </form>
+    <a class="btn" href="{{ url_for('consumer_new') }}">{{ icon("plus") }} Add consumer</a>
+  </div>
+</div>
+
+{% if consumers %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>ID</th><th>Name</th><th>Born</th><th>SSN</th>
+      <th class="num">Accounts</th><th>Flags</th><th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in consumers %}
+    <tr>
+      <td class="muted">{{ c.consumerid }}</td>
+      <td>
+        <a href="{{ url_for('consumer_detail', consumer_id=c.consumerid) }}">
+          {{ c.lastname }}, {{ c.firstname }}
+        </a>
+      </td>
+      <td class="muted">{{ c.yearofbirth }}</td>
+      <td class="muted">{{ c.ssn_masked }}</td>
+      <td class="num">{{ c.account_count }}</td>
+      <td>
+        {% if c.securityfreezeflag %}<span class="tag tag-warn">Freeze</span>{% endif %}
+        {% if c.fraudalertflag %}<span class="tag tag-warn">Fraud alert</span>{% endif %}
+        {% if c.deceasedflag %}<span class="tag tag-bad">Deceased</span>{% endif %}
+      </td>
+      <td>
+        <div class="actions">
+          <a class="btn btn-secondary btn-sm"
+             href="{{ url_for('consumer_edit', consumer_id=c.consumerid) }}">{{ icon("edit") }} Edit</a>
+          <a class="btn btn-danger btn-sm"
+             href="{{ url_for('consumer_delete', consumer_id=c.consumerid) }}">{{ icon("trash") }} Delete</a>
+        </div>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">
+  {% if search %}
+    No consumer matches &ldquo;{{ search }}&rdquo;.
+  {% else %}
+    No consumers on file yet.
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

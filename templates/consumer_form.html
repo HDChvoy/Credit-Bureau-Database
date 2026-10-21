@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}
+  {{ 'Add consumer' if mode == 'new' else 'Edit consumer' }}
+{% endblock %}
+
+{% block content %}
+
+<h1>{{ 'Add consumer' if mode == 'new' else 'Edit consumer' }}</h1>
+<p class="sub">
+  {% if mode == 'new' %}
+    Creates a row in <code>Consumer</code>.
+  {% else %}
+    Updates consumer #{{ consumer.consumerid or consumer_id }}.
+  {% endif %}
+</p>
+
+{% if errors %}
+<ul class="errors">
+  {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<form method="post" class="panel" novalidate>
+
+  <div class="grid3">
+    <div class="field">
+      <label for="first_name">First name</label>
+      <input type="text" id="first_name" name="first_name" maxlength="40"
+             value="{{ consumer.firstname or consumer.first_name or '' }}">
+    </div>
+    <div class="field">
+      <label for="middle_name">Middle name <span class="hint">optional</span></label>
+      <input type="text" id="middle_name" name="middle_name" maxlength="40"
+             value="{{ consumer.middlename or consumer.middle_name or '' }}">
+    </div>
+    <div class="field">
+      <label for="last_name">Last name</label>
+      <input type="text" id="last_name" name="last_name" maxlength="40"
+             value="{{ consumer.lastname or consumer.last_name or '' }}">
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="field">
+      <label for="suffix">Suffix <span class="hint">Jr, III</span></label>
+      <input type="text" id="suffix" name="suffix" maxlength="10"
+             value="{{ consumer.suffix or '' }}">
+    </div>
+    <div class="field">
+      <label for="ssn_masked">SSN <span class="hint">last 4 only</span></label>
+      <input type="text" id="ssn_masked" name="ssn_masked" maxlength="11"
+             placeholder="1234"
+             value="{{ consumer.ssn_masked or '' }}">
+    </div>
+    <div class="field">
+      <label for="year_of_birth">Year of birth</label>
+      <input type="number" id="year_of_birth" name="year_of_birth"
+             min="1900" max="{{ current_year or 2026 }}" placeholder="1985"
+             value="{{ consumer.yearofbirth or consumer.year_of_birth or '' }}">
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="field">
+      <label for="primary_phone">Phone <span class="hint">optional</span></label>
+      <input type="text" id="primary_phone" name="primary_phone" maxlength="20"
+             value="{{ consumer.primaryphone or consumer.primary_phone or '' }}">
+    </div>
+    <div class="field">
+      <label for="email_address">Email <span class="hint">optional</span></label>
+      <input type="email" id="email_address" name="email_address" maxlength="120"
+             value="{{ consumer.emailaddress or consumer.email_address or '' }}">
+    </div>
+  </div>
+
+  <h2>File flags</h2>
+
+  <div class="checkline">
+    <input type="checkbox" id="security_freeze_flag" name="security_freeze_flag"
+           {% if consumer.securityfreezeflag or consumer.security_freeze_flag %}checked{% endif %}>
+    <label for="security_freeze_flag">
+      Security freeze
+      <span class="hint">blocks new tradelines; requires a start date</span>
+    </label>
+  </div>
+
+  <div class="field" style="max-width:280px">
+    <label for="freeze_start_date">Freeze start date</label>
+    <input type="date" id="freeze_start_date" name="freeze_start_date"
+           value="{{ (consumer.freezestartdate or consumer.freeze_start_date or '') if (consumer.freezestartdate or consumer.freeze_start_date) else '' }}">
+  </div>
+
+  <div class="checkline">
+    <input type="checkbox" id="fraud_alert_flag" name="fraud_alert_flag"
+           {% if consumer.fraudalertflag or consumer.fraud_alert_flag %}checked{% endif %}>
+    <label for="fraud_alert_flag">Fraud alert</label>
+  </div>
+
+  <div class="checkline">
+    <input type="checkbox" id="deceased_flag" name="deceased_flag"
+           {% if consumer.deceasedflag or consumer.deceased_flag %}checked{% endif %}>
+    <label for="deceased_flag">Deceased</label>
+  </div>
+
+  <div class="note">
+    Only the last four digits of an SSN are stored. The
+    <code>chk_consumer_ssn_format</code> constraint rejects anything else,
+    so a full SSN cannot be written to this database even by mistake.
+  </div>
+
+  <div class="actions" style="margin-top:18px">
+    <button class="btn" type="submit">
+      {{ 'Create consumer' if mode == 'new' else 'Save changes' }}
+    </button>
+    <a class="btn btn-secondary"
+       href="{% if mode == 'edit' and (consumer.consumerid or consumer_id) %}{{ url_for('consumer_detail', consumer_id=consumer.consumerid or consumer_id) }}{% else %}{{ url_for('consumer_list') }}{% endif %}">
+      Cancel
+    </a>
+  </div>
+
+</form>
+
+{% endblock %}

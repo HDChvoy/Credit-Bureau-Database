@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ consumer.firstname }} {{ consumer.lastname }} &mdash; Credit file{% endblock %}
+
+{% block content %}
+
+<div class="row-between">
+  <div>
+    <h1>
+      {{ consumer.firstname }}
+      {{ consumer.middlename ~ ' ' if consumer.middlename else '' }}
+      {{ consumer.lastname }}{{ ' ' ~ consumer.suffix if consumer.suffix else '' }}
+    </h1>
+    <p class="sub" style="margin:0">
+      Credit file #{{ consumer.consumerid }} &middot;
+      born {{ consumer.yearofbirth }} &middot;
+      {{ consumer.ssn_masked }} &middot;
+      enrolled {{ consumer.enrollmentdate }}
+      {% if consumer.securityfreezeflag %}
+        <span class="tag tag-warn">Freeze since {{ consumer.freezestartdate }}</span>
+      {% endif %}
+      {% if consumer.fraudalertflag %}<span class="tag tag-warn">Fraud alert</span>{% endif %}
+      {% if consumer.deceasedflag %}<span class="tag tag-bad">Deceased</span>{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-secondary"
+       href="{{ url_for('consumer_edit', consumer_id=consumer.consumerid) }}">{{ icon("edit") }} Edit</a>
+    <a class="btn btn-danger"
+       href="{{ url_for('consumer_delete', consumer_id=consumer.consumerid) }}">{{ icon("trash") }} Delete</a>
+  </div>
+</div>
+
+<!-- These three figures are computed by the D2 functions, not by Python. -->
+<div class="stats">
+  <div class="stat">
+    <div class="n">
+      {{ ('%.1f%%' % consumer.utilization) if consumer.utilization is not none else '—' }}
+    </div>
+    <div class="k">Utilization</div>
+  </div>
+  <div class="stat">
+    <div class="n">
+      {{ ('%.1f%%' % consumer.on_time_pct) if consumer.on_time_pct is not none else '—' }}
+    </div>
+    <div class="k">On-time payments</div>
+  </div>
+  <div class="stat">
+    <div class="n">{{ consumer.avg_age_months or '—' }}</div>
+    <div class="k">Avg account age (mo)</div>
+  </div>
+  <div class="stat">
+    <div class="n">{{ accounts|length }}</div>
+    <div class="k">Tradelines</div>
+  </div>
+</div>
+
+<div class="note">
+  Utilization, on-time percentage and average account age come from
+  <code>fn_credit_utilization</code>, <code>fn_on_time_payment_pct</code> and
+  <code>fn_average_account_age_months</code> &mdash; the functions written in
+  Deliverable&nbsp;#2. The application selects them; it does not recompute them.
+</div>
+
+<!-- ---------------- credit scores ---------------- -->
+<h2>Credit scores</h2>
+{% if scores %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Date</th><th>Model</th><th class="num">Score</th><th>Band</th></tr>
+  </thead>
+  <tbody>
+  {% for s in scores %}
+    <tr>
+      <td>{{ s.scoredate }}</td>
+      <td>{{ s.scoremodel }}</td>
+      <td class="num"><strong>{{ s.scorevalue }}</strong></td>
+      <td>
+        <span class="tag {% if s.band in ('Exceptional','Very Good') %}tag-good
+                         {% elif s.band == 'Poor' %}tag-bad{% endif %}">
+          {{ s.band }}
+        </span>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">No scores on file.</div>
+{% endif %}
+
+<!-- ---------------- accounts ---------------- -->
+<div class="row-between" style="margin-top:30px">
+  <h2 style="margin:0">Tradelines</h2>
+  <a class="btn btn-sm" href="{{ url_for('account_new') }}">{{ icon("plus") }} Open tradeline</a>
+</div>
+
+{% if accounts %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>Creditor</th><th>Type</th><th>Responsibility</th>
+      <th class="num">Balance</th><th class="num">Limit / Loan</th>
+      <th class="num">Past due</th><th>Status</th><th>Purges</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for a in accounts %}
+    <tr>
+      <td>
+        <a href="{{ url_for('account_detail', account_id=a.accountid) }}">
+          {{ a.creditorname }}
+        </a>
+        <div class="muted" style="font-size:12.5px">{{ a.accountnumbermasked }}</div>
+      </td>
+      <td>
+        {{ a.accounttype }}
+        <div class="muted" style="font-size:12.5px">{{ a.accountcategory }}</div>
+      </td>
+      <td class="muted">{{ a.responsibilitytype }}</td>
+      <td class="num">${{ '{:,.2f}'.format(a.currentbalance) }}</td>
+      <td class="num">
+        {% if a.creditlimit is not none %}${{ '{:,.2f}'.format(a.creditlimit) }}
+        {% elif a.originalloanamount is not none %}${{ '{:,.2f}'.format(a.originalloanamount) }}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td class="num">
+        {% if a.pastdueamount and a.pastdueamount > 0 %}
+          <strong style="color:#9a2020">${{ '{:,.2f}'.format(a.pastdueamount) }}</strong>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>
+        <span class="tag {% if a.paymentstatus == 'Current' %}tag-good{% else %}tag-bad{% endif %}">
+          {{ a.paymentstatus }}
+        </span>
+        {% if a.accountstatus != 'Open' %}
+          <div class="muted" style="font-size:12.5px">{{ a.accountstatus }}</div>
+        {% endif %}
+      </td>
+      <td class="muted">{{ a.purge_date or 'never' }}</td>
+      <td>
+        <a class="btn btn-secondary btn-sm"
+           href="{{ url_for('account_edit', account_id=a.accountid) }}">{{ icon("edit") }} Edit</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">No tradelines on this file.</div>
+{% endif %}
+
+<!-- ---------------- addresses ---------------- -->
+<h2>Addresses</h2>
+{% if addresses %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Address</th><th>Type</th><th>Reported</th><th>Current</th></tr>
+  </thead>
+  <tbody>
+  {% for ad in addresses %}
+    <tr>
+      <td>
+        {{ ad.streetline1 }}{% if ad.streetline2 %}, {{ ad.streetline2 }}{% endif %}<br>
+        <span class="muted">{{ ad.city }}, {{ ad.statecode }} {{ ad.postalcode }}</span>
+      </td>
+      <td class="muted">{{ ad.addresstype }}</td>
+      <td class="muted">{{ ad.firstreporteddate }} &ndash; {{ ad.lastreporteddate }}</td>
+      <td>{% if ad.iscurrent %}<span class="tag tag-good">Current</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">No addresses on file.</div>
+{% endif %}
+
+<!-- ---------------- inquiries ---------------- -->
+<h2>Inquiries</h2>
+{% if inquiries %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Date</th><th>Creditor</th><th>Type</th><th>Purpose</th><th>Removes</th></tr>
+  </thead>
+  <tbody>
+  {% for i in inquiries %}
+    <tr>
+      <td>{{ i.inquirydate }}</td>
+      <td>{{ i.creditorname }}</td>
+      <td>
+        <span class="tag {% if i.inquirytype == 'Hard' %}tag-warn{% endif %}">
+          {{ i.inquirytype }}
+        </span>
+      </td>
+      <td class="muted">{{ i.purposetype }}</td>
+      <td class="muted">{{ i.removaldate or 'not disclosed' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">No inquiries on file.</div>
+{% endif %}
+
+<p style="margin-top:24px">
+  <a href="{{ url_for('consumer_list') }}">&larr; All consumers</a>
+</p>
+
+{% endblock %}

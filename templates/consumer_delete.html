@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Delete consumer{% endblock %}
+
+{% block content %}
+
+<h1>Delete this credit file?</h1>
+<p class="sub">This cannot be undone.</p>
+
+<div class="panel">
+  <dl class="kv">
+    <dt>Consumer</dt>
+    <dd><strong>{{ consumer.firstname }} {{ consumer.lastname }}</strong>
+        (file #{{ consumer.consumerid }})</dd>
+    <dt>Born</dt><dd>{{ consumer.yearofbirth }}</dd>
+    <dt>SSN</dt><dd>{{ consumer.ssn_masked }}</dd>
+  </dl>
+</div>
+
+<h2>What goes with it</h2>
+
+<p>
+  <code>Address</code>, <code>ConsumerAccount</code>, <code>Inquiry</code> and
+  <code>CreditScore</code> are all <code>ON DELETE CASCADE</code> from
+  <code>Consumer</code>, so this single <code>DELETE</code> removes rows from
+  five tables:
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="n">{{ cascade.addresses }}</div><div class="k">Addresses</div></div>
+  <div class="stat"><div class="n">{{ cascade.account_links }}</div><div class="k">Account links</div></div>
+  <div class="stat"><div class="n">{{ cascade.inquiries }}</div><div class="k">Inquiries</div></div>
+  <div class="stat"><div class="n">{{ cascade.scores }}</div><div class="k">Credit scores</div></div>
+</div>
+
+<div class="note">
+  The tradelines themselves are <strong>not</strong> deleted. An account can
+  appear on more than one credit file &mdash; a joint account has two owners
+  &mdash; so removing one consumer's file must not destroy the account. Only
+  the {{ cascade.account_links }} link row{{ '' if cascade.account_links == 1 else 's' }}
+  in <code>ConsumerAccount</code> go.
+</div>
+
+<form method="post" style="margin-top:22px">
+  <div class="actions">
+    <button class="btn btn-danger" type="submit">
+      Yes, delete this credit file
+    </button>
+    <a class="btn btn-secondary"
+       href="{{ url_for('consumer_detail', consumer_id=consumer.consumerid) }}">
+      Cancel
+    </a>
+  </div>
+</form>
+
+{% endblock %}

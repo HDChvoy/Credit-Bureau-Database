@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ query.title }} &mdash; Analytics{% endblock %}
+
+{% block content %}
+
+<div class="analytics-layout">
+
+  {# ---- Sidebar: every report, grouped by category ---- #}
+  <aside class="sidebar" aria-label="Reports">
+    {% for c in categories %}
+      <div class="side-group {{ 'open' if c.key == category.key }}">
+        <div class="side-cat">{{ icon(c.icon) }} {{ c.title }}</div>
+        {% for q in all_queries if q.category == c.key %}
+          <a class="{{ 'current' if q.id == query.id }}"
+             href="{{ url_for('analytics_report', query_id=q.id) }}"
+             {% if q.id == query.id %}aria-current="page"{% endif %}>{{ q.title }}</a>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </aside>
+
+  {# ---- Report ---- #}
+  <div class="report">
+
+    <div class="crumbs">
+      <a href="{{ url_for('analytics_home') }}">Analytics</a> /
+      {{ icon(category.icon, 14) }} {{ category.title }}
+    </div>
+    <h1>{{ query.title }}</h1>
+    <p class="question">{{ query.question }}</p>
+
+    {% if errors %}
+      <ul class="errors" role="alert">
+        {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+        <li>Showing results for the default value instead.</li>
+      </ul>
+    {% endif %}
+
+    {# Inputs + action buttons. GET, so the result is a shareable URL. #}
+    <form class="toolbar" method="get"
+          action="{{ url_for('analytics_report', query_id=query.id) }}">
+      {% for p in query.params %}
+        <label class="tool-field">
+          <span>{{ p.label }}</span>
+          {% if p.type == "consumer" %}
+            <select name="{{ p.name }}">
+              {% for c in consumers %}
+                <option value="{{ c.consumerid }}"
+                  {{ 'selected' if c.consumerid == values[p.name] }}>
+                  #{{ c.consumerid }} {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          {% elif p.type == "choice" %}
+            <select name="{{ p.name }}">
+              {% for opt in p.choices %}
+                <option {{ 'selected' if opt == values[p.name] }}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          {% else %}
+            {# type=text, not number, so the server-side validation and
+               its error message can be demonstrated. #}
+            <input type="text" inputmode="numeric" name="{{ p.name }}"
+                   value="{{ request.args.get(p.name, values[p.name]) }}"
+                   title="Whole number, {{ p.min }} to {{ p.max }}"
+                   style="width:110px">
+          {% endif %}
+        </label>
+      {% else %}
+        <span class="no-inputs">Runs on the full database</span>
+      {% endfor %}
+
+      <div class="tool-buttons">
+        <button class="btn" type="submit">{{ icon("play") }} Run query</button>
+        <a class="btn btn-secondary"
+           href="{{ url_for('analytics_csv', query_id=query.id, **values) }}">
+          {{ icon("download") }} CSV</a>
+        <a class="btn btn-secondary"
+           href="{{ url_for('sql_console', **dict(values, **{'from': query.id})) }}">
+          {{ icon("terminal") }} Edit in console</a>
+      </div>
+    </form>
+
+    {% include "_results.html" %}
+
+    {# Explanation and SQL are collapsed by default so the page leads with
+       the results. <details> is native HTML: it opens on click or with the
+       keyboard (Enter/Space) and needs no JavaScript. #}
+    <details class="reveal">
+      <summary>{{ icon("code") }} Show SQL {{ icon("chevron", 14) }}</summary>
+      <div class="reveal-body">
+        <div class="sql-head">
+          <span class="muted small">The exact statement that produced the table above.</span>
+          <button class="btn btn-secondary btn-sm" type="button" id="copy-sql">
+            {{ icon("copy", 14) }} <span>Copy</span></button>
+        </div>
+        <pre class="sql" id="sql-text">{{ query.sql|sql_highlight }}</pre>
+        {% if query.params %}
+          <p class="muted small">
+            {{ icon("lock", 13) }} Highlighted <code>%(name)s</code> markers are
+            parameters. Their values are sent to PostgreSQL separately from
+            this text and are never spliced into it.
+          </p>
+        {% endif %}
+      </div>
+    </details>
+
+    <details class="reveal">
+      <summary>{{ icon("info") }} How it works {{ icon("chevron", 14) }}</summary>
+      <div class="reveal-body explain">
+        {% for para in query.explain %}<p>{{ para }}</p>{% endfor %}
+      </div>
+    </details>
+
+    {# Previous / next within the category #}
+    {% set idx = siblings.index(query) %}
+    <div class="pager">
+      {% if idx > 0 %}
+        <a class="btn btn-secondary btn-sm"
+           href="{{ url_for('analytics_report', query_id=siblings[idx-1].id) }}">
+           &larr; {{ siblings[idx-1].title }}</a>
+      {% else %}<span></span>{% endif %}
+      {% if idx < siblings|length - 1 %}
+        <a class="btn btn-secondary btn-sm"
+           href="{{ url_for('analytics_report', query_id=siblings[idx+1].id) }}">
+           {{ siblings[idx+1].title }} &rarr;</a>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Copy the SQL text (not the highlighting markup) to the clipboard.
+  // Fails quietly where the Clipboard API is unavailable.
+  (function () {
+    var btn = document.getElementById("copy-sql");
+    if (!btn || !navigator.clipboard) { if (btn) btn.hidden = true; return; }
+    btn.addEventListener("click", function () {
+      var text = document.getElementById("sql-text").innerText;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.querySelector("span").textContent = "Copied";
+        setTimeout(function () { btn.querySelector("span").textContent = "Copy"; }, 1500);
+      }).catch(function () {});
+    });
+  })();
+</script>
+{% endblock %}

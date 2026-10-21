@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Dashboard &mdash; Experian Credit Database{% endblock %}
+
+{% block content %}
+
+<h1>Consumer credit database</h1>
+<p class="sub">
+  CRUD and analytics over the PostgreSQL database built in Deliverable&nbsp;#2.
+</p>
+
+{% if counts %}
+<div class="stats">
+  <div class="stat"><div class="n">{{ counts.consumers }}</div><div class="k">Consumers</div></div>
+  <div class="stat"><div class="n">{{ counts.accounts }}</div><div class="k">Tradelines</div></div>
+  <div class="stat"><div class="n">{{ counts.creditors }}</div><div class="k">Creditors</div></div>
+  <div class="stat"><div class="n">{{ counts.payment_rows }}</div><div class="k">Payment rows</div></div>
+  <div class="stat"><div class="n">{{ counts.audit_rows }}</div><div class="k">Audit rows</div></div>
+</div>
+
+<h2>{{ icon("chart") }} Analytics</h2>
+<div class="cat-tiles">
+  {% for c in nav_categories %}
+  <a class="cat-tile" href="{{ url_for('analytics_report', query_id=c.first_query) }}">
+    <span class="cat-icon">{{ icon(c.icon, 20) }}</span>
+    <span><strong>{{ c.title }}</strong><small>{{ c.count }} report{{ 's' if c.count != 1 }}</small></span>
+  </a>
+  {% endfor %}
+  <a class="cat-tile" href="{{ url_for('sql_console') }}">
+    <span class="cat-icon">{{ icon("terminal", 20) }}</span>
+    <span><strong>SQL console</strong><small>Your own read-only query</small></span>
+  </a>
+</div>
+
+<div class="panel" style="margin-top:18px">
+  <h2 style="margin-top:0">What you can do here</h2>
+  <ul>
+    <li><strong><a href="{{ url_for('consumer_list') }}">Consumers</a></strong>
+        &mdash; add, edit and delete credit files. Deleting one cascades to
+        addresses, inquiries and scores.</li>
+    <li><strong><a href="{{ url_for('account_list') }}">Accounts</a></strong>
+        &mdash; open a tradeline through the <code>sp_open_account</code>
+        stored procedure, edit balances, close or delete it.</li>
+    <li><strong><a href="{{ url_for('audit_log') }}">Audit trail</a></strong>
+        &mdash; every account edit made here, recorded by the
+        <code>trg_account_audit</code> trigger.</li>
+    <li><strong><a href="{{ url_for('analytics_home') }}">Analytics</a></strong>
+        &mdash; set operations, set membership and comparison, <code>WITH</code>
+        and recursive queries, advanced aggregates and OLAP, each showing
+        the SQL it ran.</li>
+    <li><strong><a href="{{ url_for('sql_console') }}">SQL console</a></strong>
+        &mdash; run your own query in a read-only transaction.</li>
+  </ul>
+</div>
+
+{% if recent_audit %}
+<h2>Recent account changes</h2>
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>When</th><th>Account</th><th>Creditor</th>
+      <th>Column</th><th>From</th><th>To</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in recent_audit %}
+    <tr>
+      <td class="muted">{{ row.changedat.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td><a href="{{ url_for('account_detail', account_id=row.accountid) }}">#{{ row.accountid }}</a></td>
+      <td>{{ row.creditorname }}</td>
+      <td>{{ row.changedcolumn }}</td>
+      <td class="muted">{{ row.oldvalue if row.oldvalue is not none else '—' }}</td>
+      <td><strong>{{ row.newvalue if row.newvalue is not none else '—' }}</strong></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty">
+  Could not read the database. Check that PostgreSQL is running and that
+  <code>experian_credit</code> exists &mdash; see the README for setup steps.
+</div>
+{% endif %}
+
+{% endblock %}

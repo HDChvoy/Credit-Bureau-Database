@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Audit trail{% endblock %}
+
+{% block content %}
+
+<h1>Audit trail</h1>
+<p class="sub">
+  Every account change made in this application, recorded by the
+  <code>trg_account_audit</code> trigger. Newest first, most recent 100.
+</p>
+
+{% if audit %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>When</th><th>Account</th><th>Creditor</th>
+      <th>Column</th><th>From</th><th>To</th><th>By</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in audit %}
+    <tr>
+      <td class="muted">{{ row.changedat.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>
+        <a href="{{ url_for('account_detail', account_id=row.accountid) }}">
+          #{{ row.accountid }}
+        </a>
+        <div class="muted" style="font-size:12.5px">{{ row.accountnumbermasked }}</div>
+      </td>
+      <td>{{ row.creditorname }}</td>
+      <td>{{ row.changedcolumn }}</td>
+      <td class="muted">{{ row.oldvalue if row.oldvalue is not none else '—' }}</td>
+      <td><strong>{{ row.newvalue if row.newvalue is not none else '—' }}</strong></td>
+      <td class="muted">{{ row.changedby }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  Nothing in the Python code inserts into <code>AccountAudit</code>. The
+  application issues an <code>UPDATE Account</code>; the database decides what
+  that means for the audit log. That is the point of putting the rule in a
+  trigger rather than in the application &mdash; it holds no matter which
+  program does the writing.
+</div>
+
+{% else %}
+<div class="empty">
+  Nothing recorded yet. Edit an account's balance or status and the trigger
+  will write a row here.
+</div>
+{% endif %}
+
+{% endblock %}

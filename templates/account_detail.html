@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ account.creditorname }} tradeline{% endblock %}
+
+{% block content %}
+
+<div class="row-between">
+  <div>
+    <h1>{{ account.creditorname }}</h1>
+    <p class="sub" style="margin:0">
+      Account #{{ account.accountid }} &middot;
+      {{ account.accountnumbermasked }} &middot;
+      {{ account.accounttype }} ({{ account.accountcategory }})
+      {% if account.originalcreditorname %}
+        &middot; originally {{ account.originalcreditorname }}
+      {% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-secondary"
+       href="{{ url_for('account_edit', account_id=account.accountid) }}">{{ icon("edit") }} Edit</a>
+    <a class="btn btn-danger"
+       href="{{ url_for('account_delete', account_id=account.accountid) }}">{{ icon("trash") }} Delete</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="n">${{ '{:,.0f}'.format(account.currentbalance) }}</div>
+    <div class="k">Balance</div>
+  </div>
+  <div class="stat">
+    <div class="n">
+      {% if account.creditlimit is not none %}${{ '{:,.0f}'.format(account.creditlimit) }}
+      {% elif account.originalloanamount is not none %}${{ '{:,.0f}'.format(account.originalloanamount) }}
+      {% else %}—{% endif %}
+    </div>
+    <div class="k">
+      {% if account.creditlimit is not none %}Credit limit
+      {% elif account.originalloanamount is not none %}Original loan
+      {% else %}Limit{% endif %}
+    </div>
+  </div>
+  <div class="stat">
+    <div class="n" {% if account.pastdueamount > 0 %}style="color:#9a2020"{% endif %}>
+      ${{ '{:,.0f}'.format(account.pastdueamount) }}
+    </div>
+    <div class="k">Past due</div>
+  </div>
+  <div class="stat">
+    <div class="n" style="font-size:18px;padding-top:5px">{{ account.paymentstatus }}</div>
+    <div class="k">Payment status</div>
+  </div>
+</div>
+
+<div class="panel">
+  <dl class="kv">
+    <dt>Account status</dt><dd>{{ account.accountstatus }}</dd>
+    <dt>Opened</dt><dd>{{ account.dateopened }}</dd>
+    <dt>Closed</dt><dd>{{ account.dateclosed or '—' }}</dd>
+    <dt>Last activity</dt><dd>{{ account.datelastactivity or '—' }}</dd>
+    <dt>Monthly payment</dt>
+    <dd>{% if account.monthlypayment %}${{ '{:,.2f}'.format(account.monthlypayment) }}{% else %}—{% endif %}</dd>
+    <dt>Term</dt><dd>{{ account.termsmonths or '—' }}{% if account.termsmonths %} months{% endif %}</dd>
+    <dt>Creditor type</dt><dd>{{ account.businesstype }}</dd>
+    <dt>Purge date</dt>
+    <dd>{{ account.purge_date or 'never (open account)' }}
+        <span class="muted">&mdash; from <code>fn_account_purge_date</code></span></dd>
+  </dl>
+</div>
+
+<!-- ---------------- holders ---------------- -->
+<h2>Who this account appears on</h2>
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Consumer</th><th>Responsibility</th><th>Associated</th><th>Removed</th></tr>
+  </thead>
+  <tbody>
+  {% for h in holders %}
+    <tr>
+      <td>
+        <a href="{{ url_for('consumer_detail', consumer_id=h.consumerid) }}">
+          {{ h.firstname }} {{ h.lastname }}
+        </a>
+      </td>
+      <td>
+        <span class="tag">{{ h.responsibilitytype }}</span>
+      </td>
+      <td class="muted">{{ h.dateassociated }}</td>
+      <td class="muted">{{ h.dateremoved or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if holders|length > 1 %}
+<div class="note">
+  This tradeline appears on {{ holders|length }} credit files. Ownership lives
+  in <code>ConsumerAccount</code> rather than as a foreign key on
+  <code>Account</code>, which is what makes that possible.
+</div>
+{% endif %}
+
+<!-- ---------------- audit ---------------- -->
+<h2>Audit trail</h2>
+{% if audit %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>When</th><th>Column</th><th>From</th><th>To</th><th>By</th></tr>
+  </thead>
+  <tbody>
+  {% for row in audit %}
+    <tr>
+      <td class="muted">{{ row.changedat.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ row.changedcolumn }}</td>
+      <td class="muted">{{ row.oldvalue if row.oldvalue is not none else '—' }}</td>
+      <td><strong>{{ row.newvalue if row.newvalue is not none else '—' }}</strong></td>
+      <td class="muted">{{ row.changedby }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="note">
+  The application never writes to <code>AccountAudit</code>. Every row above was
+  inserted by <code>trg_account_audit</code> firing on an <code>UPDATE</code>.
+</div>
+{% else %}
+<div class="empty">
+  No changes recorded yet. Edit this account and the trigger will write a row here.
+</div>
+{% endif %}
+
+<!-- ---------------- payment history ---------------- -->
+<h2>Payment history <span class="muted" style="font-weight:400;font-size:14px">(most recent 12 months)</span></h2>
+{% if history %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Month</th><th>Status</th><th class="num">Balance</th><th class="num">Scheduled payment</th></tr>
+  </thead>
+  <tbody>
+  {% for h in history %}
+    <tr>
+      <td>{{ h.reportmonth.strftime('%Y-%m') }}</td>
+      <td>
+        <span class="tag {% if h.statuscode in ('OK','CLS') %}tag-good
+                         {% elif h.statuscode == 'ND' %}{% else %}tag-bad{% endif %}">
+          {{ h.statuscode }}
+        </span>
+      </td>
+      <td class="num">
+        {% if h.balanceamount is not none %}${{ '{:,.2f}'.format(h.balanceamount) }}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td class="num">
+        {% if h.scheduledpaymentamount is not none %}${{ '{:,.2f}'.format(h.scheduledpaymentamount) }}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty">No payment history reported.</div>
+{% endif %}
+
+<p style="margin-top:24px">
+  <a href="{{ url_for('account_list') }}">&larr; All tradelines</a>
+</p>
+
+{% endblock %}

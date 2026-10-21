@@ -1,0 +1,8 @@
+# Deliverable #4 dependencies
+#
+# psycopg 3 is the current PostgreSQL driver for Python (psycopg2 is the
+# older generation). The [binary] extra ships a precompiled libpq so no
+# C toolchain or pg_config is needed to install it.
+
+Flask>=3.1
+psycopg[binary]>=3.2

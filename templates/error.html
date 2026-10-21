@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ code }}{% endblock %}
+
+{% block content %}
+
+<h1>{{ code }}</h1>
+<p class="sub">{{ message }}</p>
+
+<div class="actions">
+  <a class="btn btn-secondary" href="{{ url_for('index') }}">{{ icon("home") }} Back to dashboard</a>
+  <a class="btn btn-secondary" href="{{ url_for('consumer_list') }}">Consumers</a>
+  <a class="btn btn-secondary" href="{{ url_for('account_list') }}">Accounts</a>
+</div>
+
+{% endblock %}
